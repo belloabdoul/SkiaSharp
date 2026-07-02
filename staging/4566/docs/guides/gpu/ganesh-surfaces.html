@@ -1,0 +1,257 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Ganesh GPU Surfaces | SkiaSharp </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Ganesh GPU Surfaces | SkiaSharp ">
+      
+      <meta name="description" content="Create GPU-backed SKSurface objects with the Ganesh backend in SkiaSharp. Build a GRContext for OpenGL, Vulkan, Metal, or Direct3D, then render fully offscreen or wrap an existing render target or texture.">
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../TOC.html">
+      <meta name="docfx:tocrel" content="../TOC.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/mono/SkiaSharp/blob/4566/merge/documentation/docfx/guides/gpu/ganesh-surfaces.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../images/logo.png" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled="" placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="ganesh-gpu-surfaces">Ganesh GPU Surfaces</h1>
+
+<p><em>Render on the GPU with a <code>GRContext</code> and the Ganesh backend</em></p>
+<p><em>Ganesh</em> is Skia's classic GPU backend. To draw on the GPU with Ganesh you create a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grcontext"><code>GRContext</code></a> — a handle to a live graphics API context — and then create an <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.sksurface"><code>SKSurface</code></a> from it. There are two shapes of GPU surface:</p>
+<ul>
+<li><strong>Offscreen</strong> surfaces, where Skia allocates and owns the GPU texture. This is the GPU equivalent of a <a href="raster-surfaces.html">raster surface</a> and is the easiest way to render on the GPU.</li>
+<li><strong>Wrapped</strong> surfaces, where you hand Skia an existing render target (a window's framebuffer) or texture that some other code created. This is how you draw SkiaSharp content into a swap-chain image you present to the screen.</li>
+</ul>
+<p>Ganesh supports four graphics APIs: <strong>OpenGL</strong>, <strong>Vulkan</strong>, <strong>Metal</strong>, and <strong>Direct3D</strong>. The context creation differs per API; everything after that — creating the surface, drawing, flushing, and reading back — is the same.</p>
+<div class="NOTE">
+<h5>Note</h5>
+<p>A <code>GRContext</code> is bound to the graphics context that was current when you created it, and neither it nor its surfaces are thread-safe. Create and use them on the thread that owns the graphics context.</p>
+</div>
+<h2 id="creating-a-context">Creating a context</h2>
+<h3 id="opengl">OpenGL</h3>
+<p>For OpenGL, a GL context must already be <em>current</em> on the calling thread — SkiaSharp does not create the GL context for you. Once it is current, create a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grglinterface"><code>GRGlInterface</code></a> (which resolves the GL entry points) and pass it to <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grcontext.creategl"><code>GRContext.CreateGl</code></a>:</p>
+<pre><code class="lang-csharp">// a platform GL context (WGL / GLX / EGL / CGL) is already current on this thread
+using var glInterface = GRGlInterface.Create();
+using var context = GRContext.CreateGl(glInterface);
+</code></pre>
+<p><code>GRContext.CreateGl()</code> also has a parameterless overload that assembles the interface from the current context for you.</p>
+<h3 id="vulkan">Vulkan</h3>
+<p>For Vulkan you supply the objects Skia needs through a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grvkbackendcontext"><code>GRVkBackendContext</code></a>: the instance, physical device, logical device, a graphics queue and its family index, and a <code>GetProcedureAddress</code> delegate that resolves Vulkan functions.</p>
+<pre><code class="lang-csharp">using var backendContext = new GRVkBackendContext
+{
+    VkInstance = instanceHandle,
+    VkPhysicalDevice = physicalDeviceHandle,
+    VkDevice = deviceHandle,
+    VkQueue = graphicsQueueHandle,
+    GraphicsQueueIndex = graphicsFamilyIndex,
+    GetProcedureAddress = (name, instance, device) =&gt; /* vkGetXxxProcAddr */,
+};
+
+using var context = GRContext.CreateVulkan(backendContext);
+</code></pre>
+<p>For a typed binding that hands you <code>IntPtr</code>s to fill in, the recommended managed Vulkan binding is <a href="https://www.nuget.org/packages/Silk.NET.Vulkan">Silk.NET</a>. The <strong>SkiaSharp.Vulkan.Silk.NET</strong> package provides a typed <code>GRSilkNetBackendContext</code> that accepts Silk.NET objects directly, so you don't marshal handles yourself:</p>
+<pre><code class="lang-csharp">using Silk.NET.Vulkan;
+
+using var backendContext = new GRSilkNetBackendContext
+{
+    VkInstance = instance,               // Silk.NET.Vulkan.Instance
+    VkPhysicalDevice = physicalDevice,   // PhysicalDevice
+    VkDevice = device,                   // Device
+    VkQueue = graphicsQueue,             // Queue
+    GraphicsQueueIndex = graphicsFamily,
+    GetProcedureAddress = getProc,       // (name, Instance, Device) =&gt; IntPtr
+    VkPhysicalDeviceFeatures = features, // PhysicalDeviceFeatures
+};
+
+using var context = GRContext.CreateVulkan(backendContext);
+</code></pre>
+<div class="NOTE">
+<h5>Note</h5>
+<p>Silk.NET is the maintained, cross-platform binding and is the recommended choice for new Vulkan code. An older <strong>SkiaSharp.Vulkan.SharpVk</strong> package with a <code>GRSharpVkBackendContext</code> still exists, but SharpVk is effectively unmaintained and only works on Windows and Linux (it throws on Android). Because <code>GRVkBackendContext</code> takes raw handles, you can also pair it with any other binding — or raw <code>libvulkan</code> P/Invoke — without a wrapper package.</p>
+</div>
+<h3 id="metal">Metal</h3>
+<p>On Apple platforms, build a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grmtlbackendcontext"><code>GRMtlBackendContext</code></a> from an <code>MTLDevice</code> and an <code>MTLCommandQueue</code>. On the Apple target frameworks you can assign the typed <code>IMTLDevice</code>/<code>IMTLCommandQueue</code> objects; from other targets, assign their native handles:</p>
+<pre><code class="lang-csharp">using var backendContext = new GRMtlBackendContext
+{
+    DeviceHandle = mtlDeviceHandle,
+    QueueHandle = mtlCommandQueueHandle,
+};
+
+using var context = GRContext.CreateMetal(backendContext);
+</code></pre>
+<h3 id="direct3d">Direct3D</h3>
+<p>On Windows, build a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grd3dbackendcontext"><code>GRD3DBackendContext</code></a> from your DXGI adapter, D3D12 device, and command queue:</p>
+<pre><code class="lang-csharp">using var backendContext = new GRD3DBackendContext
+{
+    Adapter = adapterHandle,
+    Device = d3d12DeviceHandle,
+    Queue = commandQueueHandle,
+};
+
+using var context = GRContext.CreateDirect3D(backendContext);
+</code></pre>
+<h2 id="rendering-offscreen">Rendering offscreen</h2>
+<p>The simplest GPU surface is an offscreen one: describe the image with an <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skimageinfo"><code>SKImageInfo</code></a> and let Skia allocate the backing GPU texture. Pass <code>budgeted: true</code> so the texture counts against the context's resource budget and can be recycled.</p>
+<pre><code class="lang-csharp">var info = new SKImageInfo(512, 512, SKColorType.Rgba8888, SKAlphaType.Premul);
+
+using var surface = SKSurface.Create(context, budgeted: true, info);
+
+surface.Canvas.Clear(SKColors.White);
+surface.Canvas.DrawCircle(256, 256, 200, new SKPaint { Color = SKColors.CornflowerBlue });
+
+// push the recorded work to the GPU and wait for it to finish
+context.Flush(submit: true, synchronous: true);
+</code></pre>
+<p>After flushing, you can read the pixels back synchronously — GPU readback with Ganesh works exactly like the <a href="raster-surfaces.html#getting-the-result-out">raster case</a>:</p>
+<pre><code class="lang-csharp">var pixels = new byte[info.BytesSize];
+var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+try
+{
+    surface.ReadPixels(info, handle.AddrOfPinnedObject(), info.RowBytes, 0, 0);
+}
+finally
+{
+    handle.Free();
+}
+</code></pre>
+<p>The whole offscreen loop looks the same regardless of which API you created the context with. For example, over OpenGL:</p>
+<pre><code class="lang-csharp">using var glInterface = GRGlInterface.Create();
+using var context = GRContext.CreateGl(glInterface);
+using var surface = SKSurface.Create(context, budgeted: true, info);
+
+surface.Canvas.Clear(SKColors.White);
+// ... draw ...
+context.Flush(submit: true, synchronous: true);
+</code></pre>
+<h2 id="wrapping-an-existing-render-target">Wrapping an existing render target</h2>
+<p>To draw SkiaSharp content into a render target that already exists — most often a window's framebuffer or a swap-chain image — describe it to Skia with a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grbackendrendertarget"><code>GRBackendRenderTarget</code></a> and wrap it with <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.sksurface.create"><code>SKSurface.Create</code></a>.</p>
+<p>For OpenGL, you build the backend render target from the currently bound framebuffer. This is exactly what the built-in <code>SKGLView</code> controls do internally:</p>
+<pre><code class="lang-csharp">// query the currently bound framebuffer, stencil bits, and sample count from GL,
+// then describe it to Skia
+var glInfo = new GRGlFramebufferInfo((uint)framebuffer, colorType.ToGlSizedFormat());
+using var renderTarget = new GRBackendRenderTarget(width, height, samples, stencil, glInfo);
+
+using var surface = SKSurface.Create(context, renderTarget, GRSurfaceOrigin.BottomLeft, colorType);
+
+surface.Canvas.Clear(SKColors.White);
+// ... draw the frame ...
+
+surface.Canvas.Flush();
+context.Flush();
+// then present/swap buffers with your windowing code
+</code></pre>
+<p><code>GRBackendRenderTarget</code> also has constructors for Vulkan (<code>GRVkImageInfo</code>), Metal (<code>GRMtlTextureInfo</code>), and Direct3D (<code>GRD3DTextureResourceInfo</code>), so you can wrap a swap-chain image from any of the supported APIs.</p>
+<h2 id="wrapping-an-existing-texture">Wrapping an existing texture</h2>
+<p>If instead of a render target you have a GPU <strong>texture</strong>, describe it with a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grbackendtexture"><code>GRBackendTexture</code></a> and create a surface that renders into it:</p>
+<pre><code class="lang-csharp">using var surface = SKSurface.Create(
+    context, backendTexture, GRSurfaceOrigin.TopLeft, sampleCount: 0, colorType);
+</code></pre>
+<p>You can also wrap a texture as a <em>sampling</em> <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skimage"><code>SKImage</code></a> with <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skimage.fromtexture"><code>SKImage.FromTexture</code></a> when you want to draw an existing GPU texture <em>onto</em> a surface rather than <em>into</em> it.</p>
+<h2 id="cleaning-up">Cleaning up</h2>
+<p>Dispose your surfaces and the <code>GRContext</code> when you are done, and make sure the graphics context they were created against is still current at disposal time. Disposing the <code>GRContext</code> frees all the GPU resources Skia allocated through it.</p>
+<h2 id="related-links">Related Links</h2>
+<ul>
+<li><a href="/dotnet/api/skiasharp">SkiaSharp APIs</a></li>
+<li><a href="raster-surfaces.html">Raster Surfaces</a></li>
+<li><a href="views-surfaces.html">Surfaces in the SkiaSharp Views</a></li>
+<li><a href="graphite-surfaces.html">Graphite Offscreen Surfaces</a></li>
+<li><a href="https://skia.org/docs/user/api/skcanvas_creation/">Skia canvas creation, GPU backend (skia.org)</a></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/mono/SkiaSharp/blob/4566/merge/documentation/docfx/guides/gpu/ganesh-surfaces.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          PR #4566 · mattleibow-graphite-surface-docs · 137d0b5
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
