@@ -1,0 +1,190 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>GPU and Offscreen Surfaces | SkiaSharp </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="GPU and Offscreen Surfaces | SkiaSharp ">
+      
+      <meta name="description" content="Learn how to create the different kinds of SKSurface that SkiaSharp can draw into — CPU raster surfaces, Ganesh GPU surfaces (OpenGL, Vulkan, Metal, Direct3D), the surfaces the SkiaSharp Views manage for you, and the new Graphite offscreen backend.">
+      <link rel="icon" href="../../images/favicon.ico">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../TOC.html">
+      <meta name="docfx:tocrel" content="../TOC.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/mono/SkiaSharp/blob/4566/merge/documentation/docfx/guides/gpu/index.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../images/logo.png" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled="" placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="gpu-and-offscreen-surfaces">GPU and Offscreen Surfaces</h1>
+
+<p><em>Understand the different kinds of <code>SKSurface</code> and how to create them</em></p>
+<p>Everything you draw with SkiaSharp is drawn onto an <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skcanvas"><code>SKCanvas</code></a>, and every canvas is backed by an <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.sksurface"><code>SKSurface</code></a>. The surface is what decides <em>where</em> the pixels actually live: in ordinary system memory (a <strong>raster</strong> surface), or in a texture owned by a GPU (a <strong>GPU-backed</strong> surface).</p>
+<p>Most of the other guides use an <code>SKCanvasView</code> and never create a surface directly — the view does that for you. This section is about the layer underneath: how to create a surface yourself, which is what you need for offscreen rendering, custom hosting, image processing pipelines, and server-side or headless rendering.</p>
+<h2 id="the-three-ways-to-get-a-surface">The three ways to get a surface</h2>
+<p>SkiaSharp has three families of surface, and this section has a page for each.</p>
+<ul>
+<li><p><strong>Raster surfaces</strong> live in CPU memory. They are always available, work identically on every platform, and need no GPU. This is the right choice for image generation, thumbnails, PDF/print pipelines, unit tests, and any headless workload. See <a href="raster-surfaces.html">Raster Surfaces</a>.</p>
+</li>
+<li><p><strong>Ganesh GPU surfaces</strong> are backed by a GPU texture through the classic Skia GPU backend, <em>Ganesh</em>. You create a <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grcontext"><code>GRContext</code></a> for an API — OpenGL, Vulkan, Metal, or Direct3D — and then create a surface from it, either fully offscreen or wrapping an existing render target. See <a href="ganesh-surfaces.html">Ganesh GPU Surfaces</a>.</p>
+</li>
+<li><p><strong>Graphite offscreen surfaces</strong> use Skia's newer GPU backend, <em>Graphite</em>, built on modern explicit APIs (Vulkan, Metal, and Dawn/WebGPU). Graphite records drawing into a <em>recorder</em>, snaps it into a <em>recording</em>, and submits that recording to the GPU. See <a href="graphite-surfaces.html">Graphite Offscreen Surfaces</a>.</p>
+</li>
+</ul>
+<p>Separately, if you are building an app UI you usually don't create any of these by hand — the SkiaSharp <em>Views</em> do it for you and hand you a ready-to-draw surface in a paint event. See <a href="views-surfaces.html">Surfaces in the SkiaSharp Views</a>.</p>
+<h2 id="ganesh-or-graphite">Ganesh or Graphite?</h2>
+<p>Both Ganesh and Graphite are GPU backends that render into an <code>SKSurface</code>, but the programming models differ:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Ganesh</th>
+<th>Graphite</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Context type</td>
+<td><a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.grcontext"><code>GRContext</code></a></td>
+<td><code>SKGraphiteContext</code></td>
+</tr>
+<tr>
+<td>Backends</td>
+<td>OpenGL, Vulkan, Metal, Direct3D</td>
+<td>Vulkan, Metal, Dawn (WebGPU) — no Direct3D</td>
+</tr>
+<tr>
+<td>Platforms</td>
+<td>All</td>
+<td>Metal on Apple; Vulkan on Linux/Android/Windows; Dawn on WASM</td>
+</tr>
+<tr>
+<td>Drawing model</td>
+<td>Draw on the canvas, then <code>Flush</code>/<code>Submit</code> the context</td>
+<td>Draw on the canvas, then <code>Snap</code> a recording and <code>InsertRecording</code> + <code>Submit</code> it</td>
+</tr>
+<tr>
+<td>Reading pixels back</td>
+<td>Synchronous <code>SKSurface.ReadPixels</code> works</td>
+<td><strong>Asynchronous only</strong> — use <code>SKGraphiteContext.RequestReadPixels</code></td>
+</tr>
+<tr>
+<td>In the SkiaSharp Views</td>
+<td>Yes (<code>SKGLView</code>, <code>SKMetalView</code>)</td>
+<td>Not yet — offscreen only</td>
+</tr>
+</tbody>
+</table>
+<p>Ganesh is mature and is what the Views use today. Graphite is the direction Skia is moving in, and in SkiaSharp it is currently an <strong>offscreen</strong> path — you create the surface, draw, submit, and read back the result yourself.</p>
+<p>If you already have Ganesh code and want to understand the equivalent Graphite calls, see <a href="graphite-migration.html">Migrating from Ganesh to Graphite</a>.</p>
+<h2 id="in-this-section">In this section</h2>
+<h2 id="raster-surfaces"><a href="raster-surfaces.html">Raster Surfaces</a></h2>
+<p>Create CPU-backed surfaces with <code>SKSurface.Create</code>, draw into memory you own with a raster-direct surface, and read the result back.</p>
+<h2 id="ganesh-gpu-surfaces"><a href="ganesh-surfaces.html">Ganesh GPU Surfaces</a></h2>
+<p>Create a <code>GRContext</code> for OpenGL, Vulkan, Metal, or Direct3D, then make an offscreen surface or wrap an existing render target or texture.</p>
+<h2 id="surfaces-in-the-skiasharp-views"><a href="views-surfaces.html">Surfaces in the SkiaSharp Views</a></h2>
+<p>See which view controls give you a raster surface and which give you a GPU surface, across SkiaSharp.Views, .NET MAUI, Uno Platform, and Blazor.</p>
+<h2 id="graphite-offscreen-surfaces"><a href="graphite-surfaces.html">Graphite Offscreen Surfaces</a></h2>
+<p>Create an <code>SKGraphiteContext</code>, record and submit drawing, wrap external GPU textures, and read pixels back through the asynchronous readback path.</p>
+<h2 id="migrating-from-ganesh-to-graphite"><a href="graphite-migration.html">Migrating from Ganesh to Graphite</a></h2>
+<p>Map your existing Ganesh code — context creation, flushing, and readback — onto the Graphite recorder/recording model.</p>
+<h2 id="related-links">Related Links</h2>
+<ul>
+<li><a href="/dotnet/api/skiasharp">SkiaSharp APIs</a></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/mono/SkiaSharp/blob/4566/merge/documentation/docfx/guides/gpu/index.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          PR #4566 · mattleibow-graphite-surface-docs · 137d0b5
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
